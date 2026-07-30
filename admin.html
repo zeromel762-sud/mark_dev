@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LEMON_DEV // ADMIN_CONSOLE</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-card: #1c2333;
+            --bg-terminal: #010409;
+            --accent: #58a6ff;
+            --accent-dim: rgba(88, 166, 255, 0.12);
+            --green: #3fb950;
+            --red: #f85149;
+            --orange: #d29922;
+            --purple: #7c3aed;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --text-muted: #484f58;
+            --border: #30363d;
+        }
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg-terminal);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            font-size: 0.8rem;
+        }
+        .cmd-header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 0.5rem 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .cmd-header .prompt { color: var(--green); font-size: 0.75rem; }
+        .cmd-header .cmd-title { color: var(--text-muted); font-size: 0.7rem; }
+        .cmd-header .right { display: flex; align-items: center; gap: 1rem; }
+        .cmd-header .user-badge { color: var(--accent); font-size: 0.7rem; }
+        .btn-exit {
+            padding: 0.3rem 0.6rem; background: transparent; border: 1px solid var(--border); border-radius: 4px;
+            color: var(--text-secondary); font-size: 0.65rem; cursor: pointer; font-family: inherit;
+        }
+        .btn-exit:hover { border-color: var(--red); color: var(--red); }
+        .cmd-body {
+            flex: 1; overflow-y: auto; padding: 1rem;
+            background: var(--bg-primary);
+        }
+        .cmd-body::-webkit-scrollbar { width: 4px; }
+        .cmd-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+        .cmd-line { margin-bottom: 0.5rem; line-height: 1.7; }
+        .cmd-prompt { color: var(--green); }
+        .cmd-path { color: var(--orange); }
+        .cmd-cmd { color: var(--text-primary); }
+        .cmd-output { color: var(--text-secondary); margin-left: 1rem; }
+        .cmd-success { color: var(--green); }
+        .cmd-error { color: var(--red); }
+        .cmd-info { color: var(--accent); }
+        .cmd-warn { color: var(--orange); }
+        .cmd-input-line {
+            display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem;
+        }
+        .cmd-input-line .prompt { color: var(--green); white-space: nowrap; }
+        .cmd-input {
+            flex: 1; background: transparent; border: none; border-bottom: 1px solid var(--border);
+            color: var(--text-primary); font-family: inherit; font-size: 0.8rem; outline: none;
+            padding: 0.3rem 0; caret-color: var(--green);
+        }
+        .cmd-input:focus { border-bottom-color: var(--green); }
+        .cmd-table {
+            width: 100%; border-collapse: collapse; margin-top: 0.5rem; font-size: 0.75rem;
+        }
+        .cmd-table th {
+            text-align: left; padding: 0.4rem; border-bottom: 1px solid var(--border);
+            color: var(--text-muted); font-weight: 500; text-transform: uppercase; font-size: 0.65rem;
+        }
+        .cmd-table td {
+            padding: 0.5rem 0.4rem; border-bottom: 1px solid rgba(48,54,61,0.4); vertical-align: middle;
+        }
+        .cmd-table tr:hover td { background: var(--bg-secondary); }
+        .btn-cmd {
+            padding: 0.25rem 0.5rem; border: 1px solid var(--border); border-radius: 3px;
+            font-family: inherit; font-size: 0.65rem; cursor: pointer; transition: all 0.2s;
+            background: transparent; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 0.3rem;
+        }
+        .btn-cmd:hover { border-color: var(--accent); color: var(--accent); }
+        .btn-cmd.danger { color: var(--red); }
+        .btn-cmd.danger:hover { border-color: var(--red); background: rgba(248,81,73,0.1); }
+        .btn-cmd.success { color: var(--green); }
+        .btn-cmd.success:hover { border-color: var(--green); background: rgba(63,185,80,0.1); }
+        .btn-cmd.warning { color: var(--orange); }
+        .btn-cmd.warning:hover { border-color: var(--orange); background: rgba(210,153,34,0.1); }
+        .chat-messages { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; }
+        .chat-messages::-webkit-scrollbar { width: 4px; }
+        .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+        .conv-layout { display: flex; flex: 1; min-height: 0; position: relative; }
+        .conv-sidebar {
+            width: 280px; flex-shrink: 0; background: var(--bg-terminal); border: 1px solid var(--border); border-radius: 4px;
+            display: flex; flex-direction: column; overflow: hidden; position: relative; z-index: 2;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
+        }
+        .conv-sidebar-header {
+            padding: 0.6rem; border-bottom: 1px solid var(--border); font-size: 0.7rem; color: var(--text-muted);
+            background: var(--bg-secondary); text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        .conv-sidebar-list { flex: 1; overflow-y: auto; background: var(--bg-primary); }
+        .conv-sidebar-list::-webkit-scrollbar { width: 4px; }
+        .conv-sidebar-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+        .conv-sidebar-item {
+            padding: 0.6rem 0.8rem; border-bottom: 1px solid rgba(48,54,61,0.3); cursor: pointer;
+            display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s;
+            font-size: 0.75rem; border-left: 2px solid transparent;
+        }
+        .conv-sidebar-item:hover { background: var(--bg-secondary); border-left-color: var(--accent); }
+        .conv-sidebar-item.active { background: var(--accent-dim); border-left-color: var(--accent); }
+        .conv-sidebar-item .avatar {
+            width: 28px; height: 28px; border-radius: 3px; background: var(--bg-secondary);
+            display: flex; align-items: center; justify-content: center; color: var(--text-muted); flex-shrink: 0;
+            border: 1px solid var(--border); font-size: 0.8rem;
+        }
+        .conv-sidebar-item .info { flex: 1; min-width: 0; }
+        .conv-sidebar-item .name { color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .conv-sidebar-item .meta { font-size: 0.65rem; color: var(--text-muted); display: flex; justify-content: space-between; }
+        .conv-sidebar-item .unread { background: var(--accent); color: #fff; font-size: 0.6rem; padding: 1px 6px; border-radius: 3px; font-weight: 600; }
+        .message { display: flex; gap: 0.5rem; margin-bottom: 0.6rem; max-width: 70%; position: relative; }
+        .message.own { margin-left: auto; flex-direction: row-reverse; }
+        .message .avatar { width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--purple)); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 0.6rem; flex-shrink: 0; }
+        .message.own .avatar { background: linear-gradient(135deg, var(--green), var(--accent)); }
+        .message .content { flex: 1; min-width: 0; }
+        .message .meta { display: flex; align-items: center; gap: 0.3rem; margin-bottom: 0.15rem; font-size: 0.65rem; }
+        .message .name { color: var(--accent); }
+        .message.own .name { color: var(--green); }
+        .message .time { color: var(--text-muted); }
+        .message .bubble { background: var(--bg-card); border: 1px solid var(--border); padding: 0.4rem 0.7rem; border-radius: 4px; font-size: 0.75rem; line-height: 1.3; word-break: break-word; }
+        .message.own .bubble { background: var(--accent-dim); border-color: rgba(88,166,255,0.25); }
+        .message .seen-status { font-size: 0.6rem; color: var(--text-muted); margin-left: 4px; }
+        .message .seen-status.read { color: var(--green); }
+        .reply-box {
+            padding: 0.6rem 1rem; background: var(--bg-card); border-top: 1px solid var(--border);
+            display: flex; gap: 0.5rem; align-items: flex-end;
+        }
+        .reply-box textarea {
+            flex: 1; padding: 0.4rem 0.7rem; border: 1px solid var(--border); border-radius: 4px;
+            background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-size: 0.75rem; outline: none; resize: none; min-height: 32px; max-height: 70px;
+        }
+        .reply-box textarea:focus { border-color: var(--accent); }
+        .reply-box button { padding: 0.4rem 0.8rem; background: var(--accent); border: none; border-radius: 4px; color: #fff; font-family: inherit; font-size: 0.7rem; cursor: pointer; }
+        .reply-box .btn-attach {
+            width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border);
+            background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 0.9rem;
+            display: flex; align-items: center; justify-content: center; position: relative; flex-shrink: 0;
+        }
+        .reply-box .btn-attach input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+        .message-actions { display: none; gap: 0.2rem; position: absolute; top: -14px; }
+        .message.own .message-actions { right: 0; }
+        .message:not(.own) .message-actions { left: 0; }
+        .message:hover .message-actions { display: flex; }
+        .msg-action-btn {
+            background: var(--bg-secondary); border: 1px solid var(--border); color: var(--text-secondary);
+            border-radius: 3px; padding: 1px 5px; font-size: 0.6rem; cursor: pointer; font-family: inherit;
+        }
+        .msg-action-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .msg-action-btn.delete:hover { border-color: var(--red); color: var(--red); }
+        .reactions-bar { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; }
+        .reaction-chip {
+            background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px;
+            padding: 1px 5px; font-size: 0.65rem; cursor: pointer; transition: all 0.2s;
+            display: flex; align-items: center; gap: 2px;
+        }
+        .reaction-chip:hover { border-color: var(--accent); background: var(--accent-dim); }
+        .reaction-chip.active { border-color: var(--accent); background: var(--accent-dim); }
+        .reaction-chip .count { font-size: 0.6rem; color: var(--text-muted); }
+        .reaction-picker { display: none; gap: 3px; margin-top: 3px; }
+        .reaction-picker.show { display: flex; }
+        .reaction-picker button { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; cursor: pointer; font-size: 0.75rem; }
+        .reaction-picker button:hover { background: var(--accent-dim); border-color: var(--accent); }
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 500; align-items: center; justify-content: center; }
+        .modal-overlay.active { display: flex; }
+        .modal { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; width: 90%; max-width: 440px; overflow: hidden; }
+        .modal-header { padding: 0.6rem 1rem; background: var(--bg-secondary); border-bottom: 1px solid var(--border); font-size: 0.75rem; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header .close { cursor: pointer; color: var(--text-muted); }
+        .modal-header .close:hover { color: var(--red); }
+        .modal-body { padding: 0.8rem; }
+        .modal-footer { padding: 0.6rem 1rem; border-top: 1px solid var(--border); display: flex; gap: 0.4rem; justify-content: flex-end; flex-wrap: wrap; }
+        .form-group { margin-bottom: 0.6rem; }
+        .form-group label { display: block; font-size: 0.65rem; color: var(--text-muted); margin-bottom: 0.2rem; text-transform: uppercase; }
+        .form-group input, .form-group select {
+            width: 100%; padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: 4px;
+            background: var(--bg-secondary); color: var(--text-primary); font-family: inherit; font-size: 0.75rem; outline: none;
+        }
+        .form-group input:focus { border-color: var(--accent); }
+        .no-session { position: fixed; inset: 0; background: var(--bg-primary); display: none; align-items: center; justify-content: center; z-index: 200; }
+        .no-session .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 2rem; text-align: center; max-width: 380px; }
+        .no-session .card i { font-size: 2.5rem; color: var(--red); margin-bottom: 1rem; }
+        .no-session .card h2 { font-family: inherit; margin-bottom: 0.5rem; font-size: 1rem; }
+        .no-session .card p { color: var(--text-muted); font-size: 0.75rem; margin-bottom: 1rem; }
+        .no-session .card a { display: inline-block; padding: 0.5rem 1.2rem; background: var(--accent); color: #fff; text-decoration: none; border-radius: 4px; font-family: inherit; font-size: 0.75rem; }
+        .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 300; align-items: center; justify-content: center; cursor: pointer; }
+        .lightbox.active { display: flex; }
+        .lightbox img { max-width: 90%; max-height: 90%; border-radius: 8px; }
+        .cmd-tabs { display: flex; background: var(--bg-secondary); border-bottom: 1px solid var(--border); }
+        .cmd-tab {
+            padding: 0.4rem 1rem; background: transparent; border: none; border-right: 1px solid var(--border);
+            color: var(--text-muted); font-family: inherit; font-size: 0.7rem; cursor: pointer;
+        }
+        .cmd-tab:hover { background: var(--bg-card); color: var(--text-primary); }
+        .cmd-tab.active { background: var(--bg-card); color: var(--accent); border-bottom: 2px solid var(--accent); }
+        .panel-section { display: none; flex: 1; flex-direction: column; }
+        .panel-section.active { display: flex; }
+        @media (max-width: 768px) {
+            .cmd-body { padding: 0.5rem; }
+            .cmd-table { font-size: 0.65rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="no-session" id="noSession">
+        <div class="card">
+            <i class="fa-solid fa-lock"></i>
+            <h2>// Access Denied</h2>
+            <p>Admin privileges required</p>
+            <a href="login.html">Go to Login</a>
+        </div>
+    </div>
+    <div class="lightbox" id="lightbox" onclick="this.classList.remove('active')">
+        <img id="lightboxImg" src="" alt="Preview">
+    </div>
+    <div class="cmd-header">
+        <div class="left" style="display:flex;align-items:center;gap:1rem;">
+            <span class="prompt">C:\Windows\System32\cmd.exe</span>
+            <span class="cmd-title">LEMON_DEV Admin Console</span>
+        </div>
+        <div class="right">
+            <span class="user-badge" id="adminUser"></span>
+            <button class="btn-exit" id="logoutBtn"><i class="fa-solid fa-right-from-bracket"></i> Exit</button>
+        </div>
+    </div>
+    <div class="cmd-tabs">
+        <button class="cmd-tab active" onclick="showTab('users')">./users</button>
+        <button class="cmd-tab" onclick="showTab('conversations')">./conversations</button>
+        <button class="cmd-tab" onclick="showTab('settings')">./settings</button>
+    </div>
+    <div class="cmd-body" id="cmdBody">
+        <div class="panel-section active" id="panel-users">
+            <div class="cmd-line"><span class="cmd-prompt">C:\lemon_dev\admin></span> <span class="cmd-cmd">dir /users</span></div>
+            <div class="cmd-line" style="margin-top:0.5rem;">
+                <span class="cmd-prompt">C:\lemon_dev\admin></span>
+                <input type="text" class="cmd-input" id="userSearch" placeholder="search --filter users..." oninput="filterUsers(this.value)" style="width:300px;">
+            </div>
+            <div class="conv-layout" style="margin-top:0.5rem;">
+                <div class="conv-sidebar">
+                    <div class="conv-sidebar-header">// ALL USERS</div>
+                    <div class="conv-sidebar-list" id="usersSidebarList">
+                        <div class="cmd-warn" style="padding:1rem;">Loading...</div>
+                    </div>
+                </div>
+                <div style="flex:1; display:flex; flex-direction:column; min-width:0; margin-left:1rem;">
+                    <div id="usersOutput" style="flex:1; overflow:auto;"></div>
+                </div>
+            </div>
+        </div>
+        <div class="panel-section" id="panel-conversations">
+            <div class="cmd-line"><span class="cmd-prompt">C:\lemon_dev\admin></span> <span class="cmd-cmd">cd conversations</span></div>
+            <div class="conv-layout">
+                <div class="conv-sidebar">
+                    <div class="conv-sidebar-header">// USERS</div>
+                    <div class="conv-sidebar-list" id="convSidebarList">
+                        <div class="cmd-warn" style="padding:1rem;">Loading...</div>
+                    </div>
+                </div>
+                <div style="flex:1; display:flex; flex-direction:column; min-width:0;">
+                    <div class="cmd-output" id="noConvSelected" style="flex:1; display:flex; align-items:center; justify-content:center;">
+                        <span class="cmd-warn">Select a user from the sidebar to view conversation</span>
+                    </div>
+                    <div class="cmd-line" id="chatTargetLine" style="display:none;"><span class="cmd-prompt">C:\lemon_dev\admin\chat></span> <span class="cmd-cmd" id="chatTarget">@user</span></div>
+                    <div class="chat-messages" id="chatMessages" style="display:none;"></div>
+                    <div class="reply-box" id="replyBox" style="display:none;">
+                        <button class="btn-attach" title="Upload file">
+                            <i class="fa-solid fa-paperclip"></i>
+                            <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip" />
+                        </button>
+                        <textarea id="replyInput" placeholder="// type reply..." rows="1"></textarea>
+                        <button onclick="sendReply()">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="panel-section" id="panel-settings">
+            <div class="cmd-line"><span class="cmd-prompt">C:\lemon_dev\admin></span> <span class="cmd-cmd">cd settings</span></div>
+            <div class="cmd-output">
+                <div class="cmd-line"><span class="cmd-success">[OK]</span> System configuration loaded</div>
+                <div class="cmd-line"><span class="cmd-comment">// Admin settings</span></div>
+                <div class="cmd-line"><span class="var-keyword">const</span> <span class="var-name">ADMIN_ID</span> = <span class="var-number">1</span>;</div>
+                <div class="cmd-line"><span class="var-keyword">const</span> <span class="var-name">ROLE</span> = <span class="var-string">"superadmin"</span>;</div>
+                <div class="cmd-line"><span class="var-keyword">const</span> <span class="var-name">AUTO_APPROVE</span> = <span class="var-number" id="autoApproveValue">0</span>;</div>
+                <div class="cmd-line"><span class="var-keyword">const</span> <span class="var-name">CHAT</span> = <span class="var-number">true</span>;</div>
+                <div class="cmd-line"><span class="var-keyword">const</span> <span class="var-name">FILE_UPLOAD</span> = <span class="var-number">true</span>;</div>
+                <div class="cmd-line"><span class="var-keyword">const</span> <span class="var-name">MAX_FILE_SIZE</span> = <span class="var-string">"20MB"</span>;</div>
+            </div>
+            <div style="margin-top:1rem; border:1px solid var(--border); border-radius:4px; overflow:hidden;">
+                <div style="padding:0.6rem; background:var(--bg-secondary); border-bottom:1px solid var(--border); font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">
+                    <i class="fa-solid fa-chart-line" style="color:var(--accent);"></i> // WEBSITE VISITOR STATS
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:0.5rem; padding:0.8rem;">
+                    <div style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:4px; padding:0.6rem; text-align:center;">
+                        <div style="font-size:1.4rem; font-weight:700; color:var(--accent);" id="statTotalVisits">0</div>
+                        <div style="font-size:0.6rem; color:var(--text-muted); text-transform:uppercase;">Total Visits</div>
+                    </div>
+                    <div style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:4px; padding:0.6rem; text-align:center;">
+                        <div style="font-size:1.4rem; font-weight:700; color:var(--green);" id="statTodayVisits">0</div>
+                        <div style="font-size:0.6rem; color:var(--text-muted); text-transform:uppercase;">Today's Visits</div>
+                    </div>
+                    <div style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:4px; padding:0.6rem; text-align:center;">
+                        <div style="font-size:1.4rem; font-weight:700; color:var(--orange);" id="statUniqueVisitors">0</div>
+                        <div style="font-size:0.6rem; color:var(--text-muted); text-transform:uppercase;">Unique Visitors</div>
+                    </div>
+                    <div style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:4px; padding:0.6rem; text-align:center;">
+                        <div style="font-size:1.4rem; font-weight:700; color:var(--purple);" id="statOnlineUsers">0</div>
+                        <div style="font-size:0.6rem; color:var(--text-muted); text-transform:uppercase;">Online Now</div>
+                    </div>
+                    <div style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:4px; padding:0.6rem; text-align:center;">
+                        <div style="font-size:1.4rem; font-weight:700; color:var(--accent);" id="statTotalUsers">0</div>
+                        <div style="font-size:0.6rem; color:var(--text-muted); text-transform:uppercase;">Total Users</div>
+                    </div>
+                    <div style="background:var(--bg-secondary); border:1px solid var(--border); border-radius:4px; padding:0.6rem; text-align:center;">
+                        <div style="font-size:1.4rem; font-weight:700; color:var(--green);" id="statTotalMessages">0</div>
+                        <div style="font-size:0.6rem; color:var(--text-muted); text-transform:uppercase;">Total Messages</div>
+                    </div>
+                </div>
+                <div style="padding:0.5rem 0.8rem; border-top:1px solid var(--border); font-size:0.65rem; color:var(--text-muted);">
+                    <span class="cmd-comment">// Last 7 days: </span><span id="visitsByDay" style="color:var(--accent);">Loading...</span>
+                </div>
+            </div>
+            <div id="userSettingsCard" style="display:none; margin-top:1rem;">
+                <div class="cmd-line"><span class="cmd-cmd">editing: <span id="userSettingsTitle">user.php</span></span></div>
+                <div class="cmd-output">
+                    <div class="cmd-line"><span class="cmd-prompt">username></span> <span id="setUsername"></span></div>
+                    <div class="cmd-line"><span class="cmd-prompt">email></span> <span id="setEmail"></span></div>
+                    <div class="cmd-line"><span class="cmd-prompt">status></span> <span id="setStatus" style="color:var(--text-muted);">—</span></div>
+                    <div class="cmd-line"><span class="cmd-prompt">blocked></span>
+                        <select id="setBlocked" style="background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border);font-family:inherit;font-size:0.75rem;">
+                            <option value="0">false (0)</option>
+                            <option value="1">true (1)</option>
+                        </select>
+                    </div>
+                    <div class="cmd-line"><span class="cmd-prompt">approve></span>
+                        <select id="setApproved" style="background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border);font-family:inherit;font-size:0.75rem;">
+                            <option value="0">pending</option>
+                            <option value="1">approved</option>
+                        </select>
+                    </div>
+                    <div class="cmd-line"><span class="cmd-prompt">new_password></span> <input type="text" id="setNewPassword" placeholder="enter new password..." style="background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text-primary);font-family:inherit;font-size:0.75rem;outline:none;padding:0.2rem 0;"></div>
+                    <div class="cmd-line" style="margin-top:0.5rem;">
+                        <button class="btn-cmd success" onclick="saveUserSettings()"><i class="fa-solid fa-check"></i> save</button>
+                        <button class="btn-cmd danger" onclick="deleteCurrentUser()"><i class="fa-solid fa-trash"></i> delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-overlay" id="modalUser">
+        <div class="modal">
+            <div class="modal-header">
+                <span id="modalTitle">User</span>
+                <span class="close" onclick="closeModal('modalUser')"><i class="fa-solid fa-xmark"></i></span>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="modalUserId">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="modalUsername" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="text" id="modalEmail" readonly>
+                </div>
+                <div class="form-group" id="modalPasswordGroup" style="display:none;">
+                    <label>New Password</label>
+                    <input type="text" id="modalNewPassword" placeholder="Enter new password...">
+                </div>
+            </div>
+            <div class="modal-footer" id="modalFooter">
+                <button class="btn-cmd success" onclick="approveUserFromModal()"><i class="fa-solid fa-check"></i> Approve</button>
+                <button class="btn-cmd success" id="btnUnblock" onclick="unblockUser()" style="display:none;"><i class="fa-solid fa-unlock"></i> Unblock</button>
+                <button class="btn-cmd danger" id="btnBlock" onclick="blockUser()" style="display:none;"><i class="fa-solid fa-ban"></i> Block</button>
+                <button class="btn-cmd warning" onclick="openResetPassword()"><i class="fa-solid fa-key"></i> Reset Password</button>
+                <button class="btn-cmd danger" onclick="deleteUser()"><i class="fa-solid fa-trash"></i> Delete</button>
+                <button class="btn-cmd" onclick="closeModal('modalUser')">Close</button>
+            </div>
+            <div class="modal-footer" id="modalPasswordFooter" style="display:none;">
+                <button class="btn-cmd success" onclick="confirmResetPassword()">Confirm</button>
+                <button class="btn-cmd" onclick="cancelResetPassword()">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        let users = [];
+        let conversations = [];
+        let currentChatUserId = null;
+        let myUserId = null;
+        let adminId = 1;
+        let pollingInterval = null;
+        let selectedFile = null;
+        const $ = id => document.getElementById(id);
+        async function checkSession() {
+            try {
+                const res = await fetch('auth.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'action=check' });
+                const data = await res.json();
+                if (data.success) {
+                    $('adminUser').textContent = '@' + data.username;
+                    $('noSession').style.display = 'none';
+                    init();
+                } else {
+                    $('noSession').style.display = 'flex';
+                }
+            } catch (e) {
+                $('noSession').style.display = 'flex';
+            }
+        }
+        async function init() {
+            await loadStats();
+            await loadUsers();
+            await loadConversations();
+            startPolling();
+        }
+        async function loadStats() {
+            try {
+                const res = await fetch('admin.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'action=user_count' });
+                const data = await res.json();
+                if (data.success) {}
+            } catch (e) {}
+            await loadVisitorStats();
+        }
+        async function loadVisitorStats() {
+            try {
+                const res = await fetch('admin.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'action=get_visitor_stats' });
+                const data = await res.json();
+                if (data.success) {
+                    $('statTotalVisits').textContent = data.total_visits || 0;
+                    $('statTodayVisits').textContent = data.today_visits || 0;
+                    $('statUniqueVisitors').textContent = data.unique_visitors || 0;
+                    $('statOnlineUsers').textContent = data.online_users || 0;
+                    $('statTotalUsers').textContent = data.total_users || 0;
+                    $('statTotalMessages').textContent = data.total_messages || 0;
+                    if (data.visits_by_day && data.visits_by_day.length > 0) {
+                        const dayStats = data.visits_by_day.map(d => {
+                            const date = new Date(d.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                            return `${date}: ${d.count}`;
+                        }).join(' | ');
+                        $('visitsByDay').textContent = dayStats;
+                    } else {
+                        $('visitsByDay').textContent = 'No data yet';
+                    }
+                }
+            } catch (e) { console.error('Visitor stats error', e); }
+        }
+        async function loadUsers() {
+            try {
+                const res = await fetch('admin.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'action=get_all_users_full' });
+                const data = await res.json();
+                if (data.success) {
+                    users = data.users;
+                    renderUsersSidebar(users);
+                    renderUsers(users);
+                }
+            } catch (e) { console.error(e); }
+        }
+        async function loadConversations() {
+            try {
+                const res = await fetch('admin.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'action=get_all_conversations' });
+                const data = await res.json();
+                if (data.success) {
+                    conversations = data.conversations;
+                    renderConversationSidebar(conversations);
+                }
+            } catch (e) { console.error(e); }
+        }
+        function renderConversationSidebar(list) {
+            const container = $('convSidebarList');
+            if (!list || list.length === 0) {
+                container.innerHTML = '<div class="cmd-warn" style="padding:1rem;">No conversations yet</div>';
+                return;
+            }
+            let html = '';
+            list.forEach(c => {
+                const time = c.last_message_time ? new Date(c.last_message_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                const unread = c.unread > 0 ? `<span class="unread">${c.unread}</span>` : '';
+                html += `<div class="conv-sidebar-item" onclick="openConversation(${c.id})" data-userid="${c.id}">
+                    <div class="avatar"><i class="fa-solid fa-user"></i></div>
+                    <div class="info">
+                        <div class="name">${c.username}</div>
+                        <div class="meta"><span>${time}</span>${unread}</div>
+                    </div>
+                </div>`;
+            });
+            container.innerHTML = html;
+        }
+        function renderUsersSidebar(list) {
+            const container = $('usersSidebarList');
+            if (!list || list.length === 0) {
+                container.innerHTML = '<div class="cmd-warn" style="padding:1rem;">No users found</div>';
+                return;
+            }
+            let html = '';
+            list.forEach(u => {
+                html += `<div class="conv-sidebar-item" onclick="openUserInSidebar(${u.id})" data-userid="${u.id}">
+                    <div class="avatar"><i class="fa-solid fa-user"></i></div>
+                    <div class="info">
+                        <div class="name">${u.username}</div>
+                        <div class="meta"><span>${u.email}</span></div>
+                    </div>
+                </div>`;
+            });
+            container.innerHTML = html;
+        }
+        function renderUsers(list) {
+            const container = $('usersOutput');
+            if (list.length === 0) {
+                container.innerHTML = '<span class="cmd-warn">No users found.</span>';
+                return;
+            }
+            let html = '<table class="cmd-table"><thead><tr><th>ID</th><th>USERNAME</th><th>EMAIL</th><th>STATUS</th><th>BLOCKED</th><th>APPROVED</th><th>ACTIONS</th></tr></thead><tbody>';
+            list.forEach(u => {
+                const isBlocked = parseInt(u.blocked) === 1;
+                const isApproved = parseInt(u.approved) === 1;
+                const blocked = isBlocked ? '<span style="color:var(--red)">true</span>' : 'false';
+                const approved = isApproved ? '<span style="color:var(--green)">true</span>' : '<span style="color:var(--orange)">pending</span>';
+                const approveBtn = isApproved ? '' : `<button class="btn-cmd success" onclick="event.stopPropagation(); approveUser(${u.id})" title="Approve"><i class="fa-solid fa-check"></i></button>`;
+                html += `<tr class="user-item" onclick="openConversation(${u.id})" style="cursor:pointer;">
+                    <td>${u.id}</td>
+                    <td class="user-name">${u.username}</td>
+                    <td>${u.email}</td>
+                    <td>${u.status || 'offline'}</td>
+                    <td>${blocked}</td>
+                    <td>${approved}</td>
+                    <td>
+                        ${approveBtn}
+                        <button class="btn-cmd" onclick="event.stopPropagation(); openUserModal(${u.id})">edit</button>
+                    </td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+        function filterUsers(query) {
+            const lower = query.toLowerCase();
+            const filtered = users.filter(u => u.username.toLowerCase().includes(lower) || u.email.toLowerCase().includes(lower));
+            renderUsers(filtered);
+        }
+        function openUserInSidebar(userId) {
+            const user = users.find(u => u.id == userId);
+            if (!user) return;
+            currentChatUserId = userId;
+            document.querySelectorAll('#usersSidebarList .conv-sidebar-item').forEach(el => el.classList.remove('active'));
+            const activeItem = document.querySelector(`#usersSidebarList .conv-sidebar-item[data-userid="${userId}"]`);
+            if (activeItem) activeItem.classList.add('active');
+        }
+        function openUserModal(userId) {
+            const user = users.find(u => u.id == userId);
+            if (!user) return;
+            currentChatUserId = userId;
+            $('modalUserId').value = user.id;
+            $('modalUsername').value = user.username;
+            $('modalEmail').value = user.email;
+            const isBlocked = parseInt(user.blocked) === 1;
+            if (isBlocked) {
+                $('btnBlock').style.display = 'none';
+                $('btnUnblock').style.display = 'inline-flex';
+            } else {
+                $('btnBlock').style.display = 'inline-flex';
+                $('btnUnblock').style.display = 'none';
+            }
+            $('modalUser').classList.add('active');
+        }
+        function closeModal(id) { $(id).classList.remove('active'); }
+        function openResetPassword() {
+            $('modalPasswordGroup').style.display = 'block';
+            $('modalPasswordFooter').style.display = 'flex';
+            $('modalFooter').style.display = 'none';
+            $('modalNewPassword').value = '';
+            $('modalNewPassword').focus();
+        }
+        function cancelResetPassword() {
+            $('modalPasswordGroup').style.display = 'none';
+            $('modalPasswordFooter').style.display = 'none';
+            $('modalFooter').style.display = 'flex';
+        }
+        async function confirmResetPassword() {
+            const userId = parseInt($('modalUserId').value);
+            const newPass = $('modalNewPassword').value.trim();
+            if (!newPass) { alert('Enter a password'); return; }
+            const body = new URLSearchParams();
+            body.set('action', 'reset_user_password');
+            body.set('user_id', userId);
+            body.set('new_password', newPass);
+            await fetch('admin.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
+            cancelResetPassword();
+            closeModal('modalUser');
+        }
+        async function blockUser() {
+            try {
+                const userId = parseInt($('modalUserId').value);
+                const body = new URLSearchParams();
+                body.set('action', 'block_user');
+                body.set('user_id', userId);
+                const response = await fetch('admin.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
+                const data = await response.json();
+                if (data.success) {
+                    closeModal('modalUser');
+                    await loadUsers();
+                } else {
+                    alert('Failed: ' + data.message);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        async function approveUser(userId) {
+            try {
+                const body = new URLSearchParams();
+                body.set('action', 'approve_user');
+                body.set('user_id', userId);
+                const response = await fetch('admin.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
+                const data = await response.json();
+                if (data.success) {
+                    await loadUsers();
+                } else {
+                    alert('Failed: ' + data.message);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        async function approveUserFromModal() {
+            const userId = parseInt($('modalUserId').value);
+            await approveUser(userId);
+            closeModal('modalUser');
+        }
+        async function unblockUser() {
+            try {
+                const userId = parseInt($('modalUserId').value);
+                const body = new URLSearchParams();
+                body.set('action', 'unblock_user');
+                body.set('user_id', userId);
+                const response = await fetch('admin.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
+                const data = await response.json();
+                if (data.success) {
+                    closeModal('modalUser');
+                    await loadUsers();
+                } else {
+                    alert('Failed: ' + data.message);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+        async function deleteUser() {
+            const userId = parseInt($('modalUserId').value);
+            if (!confirm('Delete this user?')) return;
+            const body = new URLSearchParams();
+            body.set('action', 'delete_user');
+            body.set('user_id', userId);
+            await fetch('admin.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
+            closeModal('modalUser');
+            await loadUsers();
+        }
+        function showTab(tab) {
+            document.querySelectorAll('.cmd-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.panel-section').forEach(p => p.classList.remove('active'));
+            event.target.classList.add('active');
+            $(`panel-${tab}`).classList.add('active');
+            if (tab === 'conversations' && currentChatUserId) openConversation(currentChatUserId);
+            if (tab === 'settings') { loadVisitorStats(); if (currentChatUserId) openUserSettings(currentChatUserId); }
+        }
+        async function openConversation(userId) {
+            const convTab = document.querySelectorAll('.cmd-tab')[1];
+            if (convTab && !convTab.classList.contains('active')) {
+                convTab.click();
+            }
+            await new Promise(resolve => setTimeout(resolve, 50));
+            const user = users.find(u => u.id == userId) || conversations.find(c => c.id == userId);
+            if (!user) {
+                $('chatMessages').style.display = 'none';
+                $('replyBox').style.display = 'none';
+                $('chatTargetLine').style.display = 'none';
+                $('noConvSelected').style.display = 'flex';
+                return;
+            }
+            currentChatUserId = user.id;
+            $('noConvSelected').style.display = 'none';
+            $('chatTargetLine').style.display = 'block';
+            $('chatMessages').style.display = 'flex';
+            $('replyBox').style.display = 'flex';
+            $('chatTarget').textContent = '@' + (user.username || user.name);
+            document.querySelectorAll('.conv-sidebar-item').forEach(el => el.classList.remove('active'));
+            const activeItem = document.querySelector(`.conv-sidebar-item[data-userid="${user.id}"]`);
+            if (activeItem) activeItem.classList.add('active');
+            await loadChatMessages(user.id);
+        }
+        async function loadChatMessages(userId) {
+            try {
+                const body = new URLSearchParams();
+                body.set('action', 'get_conversation');
+                body.set('user_id', userId);
+                body.set('last_id', 0);
+                const res = await fetch('admin.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
+                const data = await res.json();
+                if (data.success) {
+                    const container = $('chatMessages');
+                    container.innerHTML = '';
+                    data.messages.forEach(msg => appendChatMessage(msg, true));
+                    container.scrollTop = container.scrollHeight;
+                }
+            } catch (e) { console.error(e); }
+        }
+        function appendChatMessage(msg, animate) {
+            const container = $('chatMessages');
+            const isMe = msg.sender_id == adminId;
+            myUserId = adminId;
+            const div = document.createElement('div');
+            div.className = 'message' + (isMe ? ' own' : '');
+            div.setAttribute('data-id', msg.id);
+            if (animate) div.style.opacity = '0';
+            div.innerHTML = buildChatMessageHTML(msg, isMe);
+            container.appendChild(div);
+            if (animate) { div.style.transition = 'opacity 0.3s'; requestAnimationFrame(() => div.style.opacity = '1'); }
+            loadChatReactions(msg.id, div);
+        }
+        function buildChatMessageHTML(msg, isMe) {
+            let fileHTML = '';
+            if (msg.file_id) {
+                fileHTML = `<a onclick="loadAndOpenFile(${msg.file_id}, event)" style="display:flex;align-items:center;gap:0.4rem;padding:0.3rem;background:rgba(0,0,0,0.2);border-radius:4px;margin-top:0.3rem;color:inherit;text-decoration:none;cursor:pointer;font-size:0.7rem;">
+                    <i class="fa-solid fa-file" style="color:var(--accent);"></i> Attachment <i class="fa-solid fa-download" style="color:var(--accent);margin-left:auto;"></i>
+                </a>`;
+            }
+            const isSeen = msg.seen == 1 ? '<span class="seen-status read" title="Read"><i class="fa-solid fa-check-double"></i></span>' : '<span class="seen-status" title="Sent"><i class="fa-solid fa-check"></i></span>';
+            const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            return `
+                <div class="message-actions">
+                    ${isMe ? `<button class="msg-action-btn" onclick="adminEditMessage(${msg.id}, this)" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                    <button class="msg-action-btn delete" onclick="adminDeleteMessage(${msg.id})" title="Delete"><i class="fa-solid fa-trash"></i></button>` : ''}
+                    <button class="msg-action-btn" onclick="adminShowReactionPicker(${msg.id}, this)" title="React"><i class="fa-solid fa-face-smile"></i></button>
+                </div>
+                <div class="avatar"><i class="fa-solid fa-robot" style="font-size:0.6rem;"></i></div>
+                <div class="content">
+                    <div class="meta">
+                        <span class="name">${isMe ? 'You' : (msg.username || 'Unknown')}</span>
+                        <span class="time">${time} ${isMe ? isSeen : ''}</span>
+                    </div>
+                    <div class="bubble">
+                        ${escapeHtml(msg.message || '')}
+                        ${fileHTML}
+                        <div class="reactions-bar"></div>
+                        <div class="reaction-picker">
+                            <button onclick="adminQuickReact(${msg.id}, '👍')">👍</button>
+                            <button onclick="adminQuickReact(${msg.id}, '❤️')">❤️</button>
+                            <button onclick="adminQuickReact(${msg.id}, '😂')">😂</button>
+                            <button onclick="adminQuickReact(${msg.id}, '😮')">😮</button>
+                            <button onclick="adminQuickReact(${msg.id}, '😢')">😢</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        async function loadChatReactions(messageId, container) {
+            try {
+                const body = new URLSearchParams();
+                body.set('action', 'get_reactions');
+                body.set('message_id', messageId);
+                const res = await fetch('admin.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
+                const data = await res.json();
+                if (data.success && data.reactions.length > 0) {
+                    const bar = container.querySelector('.reactions-bar');
+                    if (bar) {
+                        const grouped = {};
+                        data.reactions.forEach(r => { if (!grouped[r.reaction]) grouped[r.reaction] = []; grouped[r.reaction].push(r); });
+                        bar.innerHTML = Object.entries(grouped).map(([emoji, users]) => {
+                            const mine = users.find(u => u.user_id == adminId);
+                            return `<span class="reaction-chip${mine ? ' active' : ''}" onclick="adminQuickReact(${messageId}, '${emoji}')">${emoji} <span class="count">${users.length}</span></span>`;
+                        }).join('');
+                    }
+                }
+            } catch (e) {}
+        }
+        async function adminQuickReact(messageId, emoji) {
+            const body = new URLSearchParams();
+            body.set('action', 'add_reaction');
+            body.set('message_id', messageId);
+            body.set('reaction', emoji);
+            await fetch('admin.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
+            const msgDiv = document.querySelector(`.message[data-id="${messageId}"]`);
+            if (msgDiv) loadChatReactions(messageId, msgDiv);
+            const picker = msgDiv?.querySelector('.reaction-picker');
+            if (picker) picker.classList.remove('show');
+        }
+        function adminShowReactionPicker(messageId, btn) {
+            const msgDiv = btn.closest('.message');
+            msgDiv.querySelector('.reaction-picker').classList.toggle('show');
+        }
+        async function adminEditMessage(messageId, btn) {
+            const msgDiv = btn.closest('.message');
+            const bubble = msgDiv.querySelector('.bubble');
+            const currentText = bubble.textContent.replace('Attachment', '').trim();
+            if (!confirm('Edit this message?')) return;
+            const newText = prompt('Edit message:', currentText);
+            if (newText === null) return;
+            if (!newText.trim()) return;
+            const body = new URLSearchParams();
+            body.set('action', 'edit_message');
+            body.set('message_id', messageId);
+            body.set('message', newText.trim());
+            await fetch('admin.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
+            if (currentChatUserId) loadChatMessages(currentChatUserId);
+        }
+        async function adminDeleteMessage(messageId) {
+            if (!confirm('Delete this message?')) return;
+            const body = new URLSearchParams();
+            body.set('action', 'delete_message');
+            body.set('message_id', messageId);
+            await fetch('admin.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
+            const msgDiv = document.querySelector(`.message[data-id="${messageId}"]`);
+            if (msgDiv) { msgDiv.style.opacity = '0'; setTimeout(() => msgDiv.remove(), 300); }
+        }
+        async function sendReply() {
+            const input = $('replyInput');
+            const message = input.value.trim();
+            if (!message && !selectedFile) return;
+            if (!currentChatUserId) return;
+            try {
+                const formData = new FormData();
+                formData.set('action', 'reply');
+                formData.set('user_id', currentChatUserId);
+                formData.set('message', message);
+                if (selectedFile) formData.append('file', selectedFile);
+                await fetch('admin.php', { method: 'POST', body: formData });
+                input.value = '';
+                clearFilePreview();
+                await loadChatMessages(currentChatUserId);
+            } catch (e) { console.error(e); }
+        }
+        $('fileInput').addEventListener('change', e => setupFilePreview(e.target.files[0]));
+        function setupFilePreview(file) {
+            if (!file) return;
+            if (file.size > 20 * 1024 * 1024) { alert('File too large. Max 20MB.'); clearFilePreview(); return; }
+            selectedFile = file;
+        }
+        function clearFilePreview() {
+            selectedFile = null;
+            $('fileInput').value = '';
+        }
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        function openUserSettings(userId) {
+            const user = users.find(u => u.id == userId);
+            if (!user) return;
+            $('userSettingsCard').style.display = 'block';
+            $('userSettingsTitle').textContent = user.username + '.php';
+            $('setUsername').textContent = user.username;
+            $('setEmail').textContent = user.email;
+            $('setStatus').textContent = user.status || 'offline';
+            $('setStatus').style.color = user.status === 'online' ? 'var(--green)' : 'var(--text-muted)';
+            $('setBlocked').value = parseInt(user.blocked) === 1 ? '1' : '0';
+            $('setApproved').value = parseInt(user.approved) === 1 ? '1' : '0';
+            $('setNewPassword').value = '';
+        }
+        async function saveUserSettings() {
+            if (!currentChatUserId) return;
+            const blocked = parseInt($('setBlocked').value);
+            const approved = parseInt($('setApproved').value);
+            const newPass = $('setNewPassword').value.trim();
+            try {
+                if (newPass) {
+                    const body = new URLSearchParams();
+                    body.set('action', 'reset_user_password');
+                    body.set('user_id', currentChatUserId);
+                    body.set('new_password', newPass);
+                    await fetch('admin.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
+                    $('setNewPassword').value = '';
+                }
+                if (approved) {
+                    const body = new URLSearchParams();
+                    body.set('action', 'approve_user');
+                    body.set('user_id', currentChatUserId);
+                    await fetch('admin.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
+                }
+                const body = new URLSearchParams();
+                body.set('action', blocked ? 'block_user' : 'unblock_user');
+                body.set('user_id', currentChatUserId);
+                await fetch('admin.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
+                await loadUsers();
+            } catch (e) { console.error(e); }
+        }
+        async function deleteCurrentUser() {
+            if (!currentChatUserId) return;
+            if (!confirm('Delete this user?')) return;
+            const body = new URLSearchParams();
+            body.set('action', 'delete_user');
+            body.set('user_id', currentChatUserId);
+            await fetch('admin.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
+            $('userSettingsCard').style.display = 'none';
+            currentChatUserId = null;
+            await loadUsers();
+        }
+        async function toggleAutoApprove() {
+            try {
+                const body = new URLSearchParams();
+                body.set('action', 'toggle_auto_approve');
+                body.set('auto_approve', '1');
+                await fetch('admin.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
+                $('autoApproveValue').textContent = '1';
+            } catch (e) { console.error(e); }
+        }
+        function startPolling() {
+            pollingInterval = setInterval(() => {
+                loadUsers();
+                loadConversations();
+            }, 3000);
+            setInterval(() => {
+                fetch('admin.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'action=auto_approve_pending' });
+            }, 60000);
+        }
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            await fetch('auth.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'action=logout' });
+            window.location.href = 'login.html';
+        });
+        checkSession();
+    </script>
+</body>
+</html>
